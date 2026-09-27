@@ -10,6 +10,7 @@ from app.modules.admins.schemas import AdminOut
 from app.modules.reports.schemas import (
     LabourerHistoryReport,
     SiteAttendanceReport,
+    WeeklyExpenseReport,
     WeeklySettlementReport,
 )
 from app.modules.reports.service import ReportService
@@ -113,3 +114,32 @@ async def export_weekly_settlement(
     for e in report.entries:
         rows.append([e.labourer_name, str(e.suggested_amount), "Yes" if e.has_unpaid_earnings else "No"])
     return _csv_response(rows, f"weekly-settlement-{date_from}-to-{date_to}.csv")
+
+
+@router.get("/site-expenses", response_model=WeeklyExpenseReport)
+async def weekly_site_expenses(
+    date_from: date = Query(..., alias="from"),
+    date_to: date = Query(..., alias="to"),
+    _current_admin: AdminOut = Depends(get_current_admin),
+) -> WeeklyExpenseReport:
+    return await ReportService().weekly_site_expenses(date_from, date_to)
+
+
+@router.get("/site-expenses/export")
+async def export_weekly_site_expenses(
+    date_from: date = Query(..., alias="from"),
+    date_to: date = Query(..., alias="to"),
+    _current_admin: AdminOut = Depends(get_current_admin),
+) -> Response:
+    report = await ReportService().weekly_site_expenses(date_from, date_to)
+    rows = [["Site", "Labour Cost", "Travel Expenses", "Site Costs", "Total Cost"]]
+    for s in report.sites:
+        rows.append(
+            [s.site_name, str(s.labour_cost), str(s.travel_expenses), str(s.site_costs), str(s.total_cost)]
+        )
+    rows.append([])
+    rows.append(["Total labour cost", str(report.total_labour_cost)])
+    rows.append(["Total travel expenses", str(report.total_travel_expenses)])
+    rows.append(["Total site costs", str(report.total_site_costs)])
+    rows.append(["Total expense", str(report.total_expense)])
+    return _csv_response(rows, f"site-expenses-{date_from}-to-{date_to}.csv")

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { getLabourerHistory, getSiteAttendance, getWeeklySettlement } from './api'
+import { getLabourerHistory, getSiteAttendance, getWeeklySettlement, getWeeklySiteExpenses } from './api'
 
 export function useLabourerHistory(labourerId: string | null, from: string, to: string) {
   return useQuery({
@@ -21,5 +21,12 @@ export function useWeeklySettlementReport(from: string, to: string) {
   return useQuery({
     queryKey: ['reports', 'weekly-settlement', from, to],
     queryFn: () => getWeeklySettlement(from, to),
+  })
+}
+
+export function useWeeklySiteExpensesReport(from: string, to: string) {
+  return useQuery({
+    queryKey: ['reports', 'site-expenses', from, to],
+    queryFn: () => getWeeklySiteExpenses(from, to),
   })
 }

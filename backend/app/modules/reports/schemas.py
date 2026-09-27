@@ -57,3 +57,22 @@ class WeeklySettlementReport(BaseModel):
     period_start: date
     period_end: date
     entries: list[WeeklySettlementEntry]
+
+
+class SiteExpenseBreakdown(BaseModel):
+    site_id: str
+    site_name: str
+    labour_cost: Decimal
+    travel_expenses: Decimal
+    site_costs: Decimal
+    total_cost: Decimal
+
+
+class WeeklyExpenseReport(BaseModel):
+    period_start: date
+    period_end: date
+    sites: list[SiteExpenseBreakdown]
+    total_labour_cost: Decimal
+    total_travel_expenses: Decimal
+    total_site_costs: Decimal
+    total_expense: Decimal

@@ -121,7 +121,7 @@ export default function SiteFormSheet({ site, onClose }: { site?: Site | null; o
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Tower A"
-            autoFocus
+            autoFocus={!isEdit}
           />
         </Field>
 

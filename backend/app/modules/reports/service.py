@@ -13,6 +13,8 @@ from app.modules.reports.schemas import (
     LabourerHistoryWorkRecord,
     SiteAttendanceEntry,
     SiteAttendanceReport,
+    SiteExpenseBreakdown,
+    WeeklyExpenseReport,
     WeeklySettlementEntry,
     WeeklySettlementReport,
 )
@@ -139,3 +141,44 @@ class ReportService:
             )
 
         return WeeklySettlementReport(period_start=period_start, period_end=period_end, entries=entries)
+
+    async def weekly_site_expenses(self, period_start: date, period_end: date) -> WeeklyExpenseReport:
+        """Labour, travel, and site-cost breakdown per site for a period --
+        "which site cost how much" -- covering every site regardless of
+        current status, since a site closed mid-period still had real costs.
+        """
+        sites = await self._site_repo.list(status=None)
+        breakdowns: list[SiteExpenseBreakdown] = []
+        total_labour = zero()
+        total_travel = zero()
+        total_site_costs = zero()
+
+        for site in sites:
+            labour, travel, site_costs = await self._site_repo.expense_totals_for_range(
+                site.id, period_start, period_end
+            )
+            total_labour += labour
+            total_travel += travel
+            total_site_costs += site_costs
+            breakdowns.append(
+                SiteExpenseBreakdown(
+                    site_id=site.id,
+                    site_name=site.name,
+                    labour_cost=labour,
+                    travel_expenses=travel,
+                    site_costs=site_costs,
+                    total_cost=labour + travel + site_costs,
+                )
+            )
+
+        breakdowns.sort(key=lambda b: b.total_cost, reverse=True)
+
+        return WeeklyExpenseReport(
+            period_start=period_start,
+            period_end=period_end,
+            sites=breakdowns,
+            total_labour_cost=total_labour,
+            total_travel_expenses=total_travel,
+            total_site_costs=total_site_costs,
+            total_expense=total_labour + total_travel + total_site_costs,
+        )

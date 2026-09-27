@@ -57,7 +57,7 @@ const STATUS_STYLES: Record<string, string> = {
 export default function PaymentsPage() {
   const [search, setSearch] = useState('')
   const [labourerId, setLabourerId] = useState<string | null>(null)
-  const [periodType, setPeriodType] = useState<PeriodType>('daily')
+  const [periodType, setPeriodType] = useState<PeriodType>('weekly')
   const [anchorDate, setAnchorDate] = useState(todayIso())
   const [paidAmount, setPaidAmount] = useState('')
   const [reason, setReason] = useState('')

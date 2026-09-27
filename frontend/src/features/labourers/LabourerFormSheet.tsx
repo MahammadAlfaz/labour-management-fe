@@ -68,7 +68,7 @@ export default function LabourerFormSheet({ labourer, onClose }: LabourerFormShe
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Full name"
-            autoFocus
+            autoFocus={!isEdit}
           />
         </Field>
 

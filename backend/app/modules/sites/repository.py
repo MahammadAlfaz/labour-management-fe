@@ -15,6 +15,19 @@ def _date_or_none(value: str | None) -> date | None:
     return date.fromisoformat(value) if value else None
 
 
+def _extract_total(rows: list[dict]) -> Decimal:
+    # $sum over zero matching documents returns no group in real MongoDB
+    # (rows == []), but some drivers/test doubles synthesize a {"total": 0}
+    # row instead -- handle both shapes, and both Decimal128 and
+    # plain-numeric total values, uniformly.
+    if not rows:
+        return zero()
+    total = rows[0]["total"]
+    if isinstance(total, Decimal128):
+        return from_decimal128(total) or zero()
+    return to_money(total)
+
+
 def _to_out(doc: dict) -> SiteOut:
     return SiteOut(
         id=str(doc["_id"]),
@@ -167,19 +180,6 @@ class SiteRepository:
         Payments are intentionally not added to labour cost: they settle the
         same wages/expenses and would otherwise double-count the expense.
         """
-
-        def _extract_total(rows: list[dict]) -> Decimal:
-            # $sum over zero matching documents returns no group in real
-            # MongoDB (rows == []), but some drivers/test doubles synthesize
-            # a {"total": 0} row instead -- handle both shapes, and both
-            # Decimal128 and plain-numeric total values, uniformly.
-            if not rows:
-                return zero()
-            total = rows[0]["total"]
-            if isinstance(total, Decimal128):
-                return from_decimal128(total) or zero()
-            return to_money(total)
-
         db = get_database()
         labour_result = await db.daily_work_records.aggregate(
             [{"$match": {"site_id": site_id}}, {"$group": {"_id": None, "total": {"$sum": "$amount"}}}]
@@ -206,3 +206,44 @@ class SiteRepository:
         ).to_list(length=1)
         site_expenses = _extract_total(site_expense_result)
         return labour, travel, receipts, site_expenses
+
+    async def expense_totals_for_range(
+        self, site_id: str, start: date, end: date
+    ) -> tuple[Decimal, Decimal, Decimal]:
+        """Labour, travel, and site-cost totals for one site within a date
+        range -- the date-scoped counterpart to financial_totals, used for
+        period reports (e.g. a weekly expense breakdown) rather than an
+        all-time cumulative summary. Client receipts aren't part of this;
+        this is purely the expense side.
+        """
+        db = get_database()
+        date_range = {"$gte": start.isoformat(), "$lte": end.isoformat()}
+
+        labour_result = await db.daily_work_records.aggregate(
+            [
+                {"$match": {"site_id": site_id, "work_date": date_range}},
+                {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
+            ]
+        ).to_list(length=1)
+        labour = _extract_total(labour_result)
+
+        travel_result = await db.daily_work_records.aggregate(
+            [
+                {"$match": {"site_id": site_id, "work_date": date_range}},
+                {"$project": {"record_id": {"$toString": "$_id"}}},
+                {"$lookup": {"from": "travel_expenses", "localField": "record_id", "foreignField": "daily_work_record_id", "as": "expenses"}},
+                {"$unwind": "$expenses"},
+                {"$group": {"_id": None, "total": {"$sum": "$expenses.amount"}}},
+            ]
+        ).to_list(length=1)
+        travel = _extract_total(travel_result)
+
+        site_expense_result = await db.site_expenses.aggregate(
+            [
+                {"$match": {"site_id": site_id, "expense_date": date_range}},
+                {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
+            ]
+        ).to_list(length=1)
+        site_costs = _extract_total(site_expense_result)
+
+        return labour, travel, site_costs

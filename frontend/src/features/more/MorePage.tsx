@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BuildingIcon, CashIcon, ChatIcon, ChevronRightIcon, RulerIcon, UsersIcon } from '../../components/icons'
+import { BuildingIcon, CashIcon, ChartIcon, ChatIcon, ChevronRightIcon, RulerIcon, UsersIcon } from '../../components/icons'
 import LabourerHistoryView from '../reports/LabourerHistoryView'
 import SiteAttendanceView from '../reports/SiteAttendanceView'
 import WeeklySettlementView from '../reports/WeeklySettlementView'
+import WeeklySiteExpensesView from '../reports/WeeklySiteExpensesView'
 
 const TABS = [
   { value: 'weekly', label: 'Weekly settlement', description: 'See who is due and export the week.', Icon: CashIcon },
+  { value: 'expenses', label: 'Weekly expenses', description: 'Labour, travel, and site costs by site.', Icon: ChartIcon },
   { value: 'labourer', label: 'Labourer history', description: 'Review earnings, work days, and balance.', Icon: UsersIcon },
   { value: 'site', label: 'Site attendance', description: 'Review work records and site payouts.', Icon: BuildingIcon },
 ] as const
@@ -84,6 +86,7 @@ export default function MorePage() {
         {tab === 'labourer' && <LabourerHistoryView />}
         {tab === 'site' && <SiteAttendanceView />}
         {tab === 'weekly' && <WeeklySettlementView />}
+        {tab === 'expenses' && <WeeklySiteExpensesView />}
       </section>
     </div>
   )

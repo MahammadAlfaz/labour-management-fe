@@ -178,3 +178,73 @@ async def test_weekly_settlement_with_no_active_labourers_is_empty(report_servic
     report = await report_service.weekly_settlement(date(2026, 2, 1), date(2026, 2, 7))
 
     assert report.entries == []
+
+
+async def test_weekly_site_expenses_breaks_down_labour_travel_and_site_costs(
+    report_service, attendance_service, labourer_id, site_id
+):
+    from app.modules.sites.schemas import SiteExpenseCreate
+    from app.modules.sites.service import SiteService
+    from app.modules.sites.repository import SiteRepository
+
+    record = await _mark_full_day(attendance_service, labourer_id, site_id, date(2026, 2, 2))
+    await ExpenseService(ExpenseRepository(), WorkRecordRepository()).add(
+        record.id, ExpenseCreate(category="PETROL", amount="50"), "admin-1"
+    )
+    await SiteService(SiteRepository()).record_site_expense(
+        site_id, SiteExpenseCreate(category="FOOD", amount="200", expense_date=date(2026, 2, 2)), "admin-1"
+    )
+
+    report = await report_service.weekly_site_expenses(date(2026, 2, 1), date(2026, 2, 7))
+
+    entry = next(s for s in report.sites if s.site_id == site_id)
+    assert entry.labour_cost == 800
+    assert entry.travel_expenses == 50
+    assert entry.site_costs == 200
+    assert entry.total_cost == 1050
+    assert report.total_labour_cost == 800
+    assert report.total_travel_expenses == 50
+    assert report.total_site_costs == 200
+    assert report.total_expense == 1050
+
+
+async def test_weekly_site_expenses_excludes_costs_outside_the_period(
+    report_service, attendance_service, labourer_id, site_id
+):
+    await _mark_full_day(attendance_service, labourer_id, site_id, date(2026, 1, 15))
+
+    report = await report_service.weekly_site_expenses(date(2026, 2, 1), date(2026, 2, 7))
+
+    entry = next(s for s in report.sites if s.site_id == site_id)
+    assert entry.labour_cost == 0
+    assert entry.total_cost == 0
+
+
+async def test_weekly_site_expenses_includes_sites_with_zero_activity(report_service, site_id):
+    report = await report_service.weekly_site_expenses(date(2026, 2, 1), date(2026, 2, 7))
+
+    entry = next(s for s in report.sites if s.site_id == site_id)
+    assert entry.total_cost == 0
+
+
+async def test_weekly_site_expenses_sorts_by_total_cost_descending(
+    report_service, attendance_service, labourer_id, site_id
+):
+    from app.modules.sites.schemas import SiteCreate, SiteExpenseCreate
+    from app.modules.sites.service import SiteService
+    from app.modules.sites.repository import SiteRepository
+
+    other_site = await SiteService(SiteRepository()).create(
+        SiteCreate(name="Cheaper Site", location="Loc B"), "admin-1"
+    )
+    await _mark_full_day(attendance_service, labourer_id, other_site.id, date(2026, 2, 3))
+    await _mark_full_day(attendance_service, labourer_id, site_id, date(2026, 2, 2))
+    await SiteService(SiteRepository()).record_site_expense(
+        site_id, SiteExpenseCreate(category="FOOD", amount="500", expense_date=date(2026, 2, 2)), "admin-1"
+    )
+
+    report = await report_service.weekly_site_expenses(date(2026, 2, 1), date(2026, 2, 7))
+
+    totals = [s.total_cost for s in report.sites]
+    assert totals == sorted(totals, reverse=True)
+    assert report.sites[0].site_id == site_id

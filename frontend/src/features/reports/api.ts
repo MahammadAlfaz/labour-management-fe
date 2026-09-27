@@ -56,6 +56,25 @@ export interface WeeklySettlementReport {
   entries: WeeklySettlementEntry[]
 }
 
+export interface SiteExpenseBreakdown {
+  site_id: string
+  site_name: string
+  labour_cost: string
+  travel_expenses: string
+  site_costs: string
+  total_cost: string
+}
+
+export interface WeeklyExpenseReport {
+  period_start: string
+  period_end: string
+  sites: SiteExpenseBreakdown[]
+  total_labour_cost: string
+  total_travel_expenses: string
+  total_site_costs: string
+  total_expense: string
+}
+
 export function getLabourerHistory(labourerId: string, from: string, to: string) {
   const query = new URLSearchParams({ from, to })
   return apiFetch<LabourerHistoryReport>(`/reports/labourer/${labourerId}/history?${query.toString()}`)
@@ -84,4 +103,14 @@ export function siteAttendanceExportUrl(siteId: string, from: string, to: string
 export function weeklySettlementExportUrl(from: string, to: string) {
   const query = new URLSearchParams({ from, to })
   return `${API_BASE_URL}/reports/weekly-settlement/export?${query.toString()}`
+}
+
+export function getWeeklySiteExpenses(from: string, to: string) {
+  const query = new URLSearchParams({ from, to })
+  return apiFetch<WeeklyExpenseReport>(`/reports/site-expenses?${query.toString()}`)
+}
+
+export function weeklySiteExpensesExportUrl(from: string, to: string) {
+  const query = new URLSearchParams({ from, to })
+  return `${API_BASE_URL}/reports/site-expenses/export?${query.toString()}`
 }
