@@ -110,8 +110,15 @@ class PaymentRepository:
 
         Positive means still owed to the labourer (underpaid); negative means
         the labourer was overpaid and it should reduce the next payable.
+
+        Each payment's own `suggested_amount` already has the prior balance at
+        the time it was created folded into it, so that prior balance must be
+        subtracted back out here before comparing to what was actually paid.
+        Otherwise a shortfall that gets rolled into a later suggested amount
+        and paid off there keeps getting re-counted on top of itself forever.
         """
         balance = zero()
         for payment in await self.list_for_labourer(labourer_id):
-            balance += payment.calculation_snapshot.suggested_amount - payment.paid_amount
+            snapshot = payment.calculation_snapshot
+            balance += (snapshot.suggested_amount - snapshot.prior_balance) - payment.paid_amount
         return balance

@@ -202,6 +202,53 @@ async def test_partial_payment_carries_prior_balance_forward(
     assert preview.suggested_amount == 1100
 
 
+async def test_paying_suggested_amount_in_full_clears_a_carried_prior_balance(
+    payment_service, attendance_service, labourer_id, site_id
+):
+    await _mark_full_day(attendance_service, labourer_id, site_id, date(2026, 2, 1))
+    await payment_service.create_payment(
+        PaymentCreate(
+            labourer_id=labourer_id,
+            period_type=PeriodType.DAILY,
+            period_start=date(2026, 2, 1),
+            period_end=date(2026, 2, 1),
+            paid_amount="500",
+            adjustment_reason="Cash shortage, will settle rest next time",
+        ),
+        "admin-1",
+        idempotency_key="pay-carry-1",
+    )
+
+    await _mark_full_day(attendance_service, labourer_id, site_id, date(2026, 2, 2))
+    second_preview = await payment_service.preview(
+        labourer_id, PeriodType.DAILY, date(2026, 2, 2), date(2026, 2, 2)
+    )
+    assert second_preview.prior_balance == 300
+    assert second_preview.suggested_amount == 1100
+
+    await payment_service.create_payment(
+        PaymentCreate(
+            labourer_id=labourer_id,
+            period_type=PeriodType.DAILY,
+            period_start=date(2026, 2, 2),
+            period_end=date(2026, 2, 2),
+            paid_amount="1100",
+        ),
+        "admin-1",
+        idempotency_key="pay-carry-2",
+    )
+
+    await _mark_full_day(attendance_service, labourer_id, site_id, date(2026, 2, 3))
+    third_preview = await payment_service.preview(
+        labourer_id, PeriodType.DAILY, date(2026, 2, 3), date(2026, 2, 3)
+    )
+
+    # The 300 shortfall was fully absorbed and paid off via the second
+    # payment's higher suggested amount -- it must not reappear here.
+    assert third_preview.prior_balance == 0
+    assert third_preview.suggested_amount == 800
+
+
 async def test_overpayment_reduces_next_suggested_amount(payment_service, attendance_service, labourer_id, site_id):
     await _mark_full_day(attendance_service, labourer_id, site_id, date(2026, 2, 1))
     await payment_service.create_payment(
