@@ -36,7 +36,11 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
         secure=is_prod,
         samesite=same_site,
         max_age=settings.jwt_refresh_token_expire_days * 24 * 60 * 60,
-        path="/auth",
+        # Must match access_token's path. The frontend proxies all API calls
+        # through a same-origin "/api/..." prefix, so a cookie scoped to
+        # "/auth" never path-matches "/api/auth/refresh" and is silently
+        # dropped by the browser, breaking refresh entirely in production.
+        path="/",
     )
 
 
@@ -73,7 +77,7 @@ async def refresh(
 @router.post("/logout")
 async def logout(response: Response) -> dict:
     response.delete_cookie("access_token", path="/")
-    response.delete_cookie("refresh_token", path="/auth")
+    response.delete_cookie("refresh_token", path="/")
     return {"status": "logged_out"}
 
 
