@@ -95,3 +95,4 @@ class SiteFinancialSummary(BaseModel):
     current_profit: Decimal
     expected_profit: Decimal | None = None
     days_worked: int
+    total_worker_days: int

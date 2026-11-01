@@ -172,6 +172,7 @@ async def test_financial_summary_with_no_contract_amount(service):
     assert summary.current_profit == 0
     assert summary.total_cost == 0
     assert summary.days_worked == 0
+    assert summary.total_worker_days == 0
 
 
 async def test_financial_summary_aggregates_receipts_and_site_expenses(service):
@@ -240,4 +241,22 @@ async def test_days_worked_counts_distinct_dates_not_attendance_records(
 
     summary = await service.financial_summary(site.id)
 
+    assert summary.days_worked == 2
+    # worker_one on day 1 + worker_two on day 1 + worker_one on day 2 = 3.
+    # The absence and the unmarked assignment still don't count here either.
+    assert summary.total_worker_days == 3
+
+
+async def test_total_worker_days_counts_the_same_labourer_on_separate_days_twice(
+    service, attendance_service, two_labourers_with_wage
+):
+    site = await service.create(SiteCreate(name="Tower J", location="Pune"), "admin-1")
+    worker_one, _ = two_labourers_with_wage
+
+    await _mark(attendance_service, worker_one.id, site.id, date(2026, 2, 1), AttendanceStatus.FULL_DAY)
+    await _mark(attendance_service, worker_one.id, site.id, date(2026, 2, 2), AttendanceStatus.FULL_DAY)
+
+    summary = await service.financial_summary(site.id)
+
+    assert summary.total_worker_days == 2
     assert summary.days_worked == 2

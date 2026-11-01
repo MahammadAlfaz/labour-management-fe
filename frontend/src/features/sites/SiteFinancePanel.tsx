@@ -54,6 +54,7 @@ export default function SiteFinancePanel({ siteId }: { siteId: string }) {
       ) : summary ? (
         <dl className="mt-3 grid grid-cols-2 gap-2">
           <FinanceValue label="Days worked" value={String(summary.days_worked)} />
+          <FinanceValue label="Labour sent" value={String(summary.total_worker_days)} />
           <FinanceValue label="Agreed with client" value={summary.contract_amount === null ? 'Not set' : money(summary.contract_amount)} />
           <FinanceValue label="Received from client" value={money(summary.client_received)} tone="positive" />
           <FinanceValue label="Labour cost" value={money(summary.labour_cost)} />

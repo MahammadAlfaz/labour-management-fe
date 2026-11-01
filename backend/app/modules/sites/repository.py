@@ -224,6 +224,18 @@ class SiteRepository:
         ).to_list(length=1)
         return result[0]["days"] if result else 0
 
+    async def count_total_worker_days(self, site_id: str) -> int:
+        """Total worked attendance records at this site -- i.e. total labourer-days sent.
+
+        Unlike count_days_worked, this is NOT deduped by date: the same
+        labourer working two separate days counts as two here. Mirrors the
+        same FULL_DAY/HALF_DAY-only filter so the two stats stay consistent.
+        """
+        db = get_database()
+        return await db.daily_work_records.count_documents(
+            {"site_id": site_id, "status": {"$in": ["FULL_DAY", "HALF_DAY"]}}
+        )
+
     async def expense_totals_for_range(
         self, site_id: str, start: date, end: date
     ) -> tuple[Decimal, Decimal, Decimal]:
