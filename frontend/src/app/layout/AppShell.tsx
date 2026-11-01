@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useCurrentAdmin, useLogout } from '../../features/auth/useAuth'
+import { useAndroidBackButton } from '../../lib/androidBackButton'
 import {
   BuildingIcon,
   BrandLogo,
@@ -20,10 +21,11 @@ const NAV_ITEMS = [
 export default function AppShell() {
   const { data: admin } = useCurrentAdmin()
   const logout = useLogout()
+  useAndroidBackButton()
 
   return (
     <div className="flex h-full flex-col bg-slate-50">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2">
+      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2">
         <h1 className="flex items-center" aria-label="Labour Management">
           <BrandLogo className="h-10 w-10 text-brand-500" />
           <span className="sr-only">Labour Management</span>
@@ -39,11 +41,11 @@ export default function AppShell() {
         )}
       </header>
 
-      <main className="flex-1 overflow-y-auto pb-20">
+      <main className="flex-1 overflow-y-auto pb-[max(5rem,calc(5rem+env(safe-area-inset-bottom)))]">
         <Outlet />
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white">
+      <nav className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)]">
         <ul className="grid grid-cols-5">
           {NAV_ITEMS.map(({ to, label, Icon, ...rest }) => (
             <li key={to}>

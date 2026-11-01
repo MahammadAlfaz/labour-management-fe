@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Labour Management</string>
+    <string name="title_activity_main">Labour Management</string>
+    <string name="package_name">com.alfaz.labourmanagement</string>
+    <string name="custom_url_scheme">com.alfaz.labourmanagement</string>
+</resources>
