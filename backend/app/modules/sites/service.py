@@ -162,6 +162,7 @@ class SiteService:
         site = await self.get(site_id)
         labour_cost, travel_expenses, client_received, site_expenses = await self._repo.financial_totals(site_id)
         total_cost = labour_cost + travel_expenses + site_expenses
+        days_worked = await self._repo.count_days_worked(site_id)
         return SiteFinancialSummary(
             site_id=site_id,
             contract_amount=site.contract_amount,
@@ -177,4 +178,5 @@ class SiteService:
             expected_profit=(site.contract_amount - total_cost)
             if site.contract_amount is not None
             else None,
+            days_worked=days_worked,
         )

@@ -207,6 +207,23 @@ class SiteRepository:
         site_expenses = _extract_total(site_expense_result)
         return labour, travel, receipts, site_expenses
 
+    async def count_days_worked(self, site_id: str) -> int:
+        """Distinct dates with at least one actually-worked attendance record.
+
+        Counts work_date values, not attendance records, so a day with one
+        labourer and a day with ten labourers both count as a single day.
+        Unmarked (pending) and ABSENT records don't count as worked.
+        """
+        db = get_database()
+        result = await db.daily_work_records.aggregate(
+            [
+                {"$match": {"site_id": site_id, "status": {"$in": ["FULL_DAY", "HALF_DAY"]}}},
+                {"$group": {"_id": "$work_date"}},
+                {"$count": "days"},
+            ]
+        ).to_list(length=1)
+        return result[0]["days"] if result else 0
+
     async def expense_totals_for_range(
         self, site_id: str, start: date, end: date
     ) -> tuple[Decimal, Decimal, Decimal]:

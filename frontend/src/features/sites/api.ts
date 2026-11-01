@@ -38,6 +38,7 @@ export interface SiteFinancialSummary {
   client_balance: string | null
   current_profit: string
   expected_profit: string | null
+  days_worked: number
 }
 
 export type SiteExpenseCategory = 'FOOD' | 'OTHER'

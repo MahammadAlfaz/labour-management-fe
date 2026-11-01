@@ -1,9 +1,20 @@
+from datetime import date
+
 import pytest
 
 from app.core.errors import NotFoundError
+from app.modules.attendance.repository import WorkRecordRepository
+from app.modules.attendance.schemas import AttendanceStatus, WorkRecordAssign, WorkRecordUpdate
+from app.modules.attendance.service import AttendanceService
+from app.modules.labourers.repository import LabourerRepository
+from app.modules.labourers.schemas import LabourerCreate
+from app.modules.labourers.service import LabourerService
 from app.modules.sites.repository import SiteRepository
 from app.modules.sites.schemas import ClientReceiptCreate, SiteCreate, SiteExpenseCreate, SiteUpdate
 from app.modules.sites.service import SiteService
+from app.modules.wages.repository import WageRepository
+from app.modules.wages.schemas import WageCreate
+from app.modules.wages.service import WageService
 
 UNKNOWN_SITE_ID = "507f1f77bcf86cd799439011"
 
@@ -11,6 +22,37 @@ UNKNOWN_SITE_ID = "507f1f77bcf86cd799439011"
 @pytest.fixture
 def service(mongo_db):
     return SiteService(SiteRepository())
+
+
+@pytest.fixture
+def attendance_service(mongo_db):
+    return AttendanceService(
+        WorkRecordRepository(),
+        LabourerRepository(),
+        SiteRepository(),
+        WageService(WageRepository(), LabourerRepository()),
+    )
+
+
+@pytest.fixture
+async def two_labourers_with_wage(mongo_db):
+    labourer_service = LabourerService(LabourerRepository())
+    wage_service = WageService(WageRepository(), LabourerRepository())
+    labourers = []
+    for name in ("Worker One", "Worker Two"):
+        labourer = await labourer_service.create(LabourerCreate(name=name), "admin-1")
+        await wage_service.add_wage(
+            labourer.id, WageCreate(daily_wage="800", effective_from=date(2026, 1, 1)), "admin-1"
+        )
+        labourers.append(labourer)
+    return labourers
+
+
+async def _mark(attendance_service, labourer_id, site_id, work_date, status):
+    assigned = await attendance_service.assign(
+        WorkRecordAssign(labourer_id=labourer_id, site_id=site_id, work_date=work_date), "admin-1"
+    )
+    return await attendance_service.update(assigned.id, WorkRecordUpdate(status=status), "admin-1")
 
 
 async def test_create_site_defaults_to_active(service):
@@ -129,6 +171,7 @@ async def test_financial_summary_with_no_contract_amount(service):
     assert summary.expected_profit is None
     assert summary.current_profit == 0
     assert summary.total_cost == 0
+    assert summary.days_worked == 0
 
 
 async def test_financial_summary_aggregates_receipts_and_site_expenses(service):
@@ -172,3 +215,29 @@ async def test_financial_summary_can_show_a_loss(service):
 
     assert summary.current_profit == -5000
     assert summary.expected_profit == -4000
+
+
+async def test_days_worked_counts_distinct_dates_not_attendance_records(
+    service, attendance_service, two_labourers_with_wage
+):
+    site = await service.create(SiteCreate(name="Tower I", location="Pune"), "admin-1")
+    worker_one, worker_two = two_labourers_with_wage
+
+    # Two labourers on the same day -- must still count as a single day.
+    await _mark(attendance_service, worker_one.id, site.id, date(2026, 2, 1), AttendanceStatus.FULL_DAY)
+    await _mark(attendance_service, worker_two.id, site.id, date(2026, 2, 1), AttendanceStatus.FULL_DAY)
+
+    # A second, distinct day.
+    await _mark(attendance_service, worker_one.id, site.id, date(2026, 2, 2), AttendanceStatus.FULL_DAY)
+
+    # An absence must not count as a worked day.
+    await _mark(attendance_service, worker_one.id, site.id, date(2026, 2, 3), AttendanceStatus.ABSENT)
+
+    # An assignment that was never marked must not count either.
+    await attendance_service.assign(
+        WorkRecordAssign(labourer_id=worker_one.id, site_id=site.id, work_date=date(2026, 2, 4)), "admin-1"
+    )
+
+    summary = await service.financial_summary(site.id)
+
+    assert summary.days_worked == 2

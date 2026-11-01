@@ -94,3 +94,4 @@ class SiteFinancialSummary(BaseModel):
     client_balance: Decimal | None = None
     current_profit: Decimal
     expected_profit: Decimal | None = None
+    days_worked: int
